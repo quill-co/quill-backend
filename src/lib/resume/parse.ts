@@ -38,8 +38,8 @@ export class Parser {
 
     // Set default models based on provider
     const defaultModels: Record<SupportedModel, string> = {
-      openai: "gpt-4",
-      anthropic: "claude-3-opus-20240229",
+      openai: "gpt-4o",
+      anthropic: "claude-3.5-sonnet",
       google: "gemini-pro",
       deepseek: "deepseek-chat",
     };
@@ -64,74 +64,46 @@ export class Parser {
   }
 
   private async parseMarkdownToProfile(markdown: string): Promise<Profile> {
-    const prompt = `
-Parse the following resume markdown into a structured JSON object.
-The JSON must include ALL of these required fields:
-- name (string)
-- contactInfo (object with required email, phone, and address fields)
-  - address must include street, city, state, zip, and country
-- experiences (array of objects with company, position, startDate, description)
-- projects (array of objects with name and description as strings)
-- resumeUrl (must be a valid URL starting with http:// or https://)
-- summary (string)
-- skills (array of strings)
-- education (array of objects with institution, degree, startDate)
-- protectedVeteran (boolean)
-- race (string)
-- needsSponsorship (boolean)
-
-Example structure:
+    const prompt = `You are a resume parser. Convert this markdown resume into a JSON object with EXACTLY these fields:
 {
-  "name": "John Doe",
+  "name": "string",
   "contactInfo": {
-    "email": "john@example.com",
-    "phone": "(123) 456-7890",
+    "email": "string",
+    "phone": "string",
     "address": {
-      "street": "123 Main St",
-      "city": "San Francisco",
-      "state": "CA",
-      "zip": "94105",
-      "country": "USA"
+      "street": "string",
+      "city": "string",
+      "state": "string",
+      "zip": "string",
+      "country": "string"
     }
   },
-  "experiences": [{
-    "company": "Example Corp",
-    "position": "Software Engineer",
-    "startDate": "2020-01",
-    "description": "Full-stack development"
-  }],
-  "projects": [{
-    "name": "Project Name",
-    "description": "Project description"
-  }],
+  "experiences": [{"company": "string", "position": "string", "startDate": "string", "description": "string"}],
+  "projects": [{"name": "string", "description": "string"}],
   "resumeUrl": "https://example.com/resume",
-  "summary": "Experienced software engineer",
-  "skills": ["JavaScript", "Python"],
-  "education": [{
-    "institution": "University Name",
-    "degree": "Bachelor's in Computer Science",
-    "startDate": "2016-09"
-  }],
+  "summary": "string",
+  "skills": ["string"],
+  "education": [{"institution": "string", "degree": "string", "startDate": "string"}],
   "protectedVeteran": false,
-  "race": "Prefer not to say",
+  "race": "string",
   "needsSponsorship": false
 }
 
-Resume markdown to parse:
-${markdown}
+RULES:
+1. Return ONLY valid JSON
+2. Do not include ANY explanatory text
+3. Use https://example.com/resume if no URL found
+4. Use "Prefer not to say" for missing demographic info
 
-IMPORTANT: 
-1. Return ONLY the JSON object, with no markdown formatting, no backticks, and no additional text.
-2. Ensure ALL required fields are included with appropriate values.
-3. All URL fields (resumeUrl, linkedin, github, etc.) must be valid URLs starting with http:// or https://.
-4. If a URL is not found in the resume, use a placeholder like https://example.com/resume.`;
+RESUME TO PARSE:
+${markdown}`;
 
     try {
       const { text } = await generateText({
         model: this.getModelProvider(),
-        temperature: this.temperature,
+        temperature: 0,
         system:
-          "You are a resume parser that converts markdown resumes into structured JSON data. Always return valid JSON without any markdown formatting or additional text. Ensure all required fields are present with appropriate values, using placeholder URLs when needed.",
+          "You are a JSON generator. Only output valid JSON objects. Never include explanatory text.",
         prompt: prompt,
       });
 
@@ -139,11 +111,18 @@ IMPORTANT:
         throw new Error("No content received from AI provider");
       }
 
-      // Clean the response to ensure it's valid JSON
+      // Clean and validate the response
       const cleanJson = text.replace(/```json\s*|\s*```/g, "").trim();
+      if (!cleanJson.startsWith("{") || !cleanJson.endsWith("}")) {
+        throw new Error("Response is not a JSON object");
+      }
+
       const parsedData = JSON.parse(cleanJson);
       return ProfileSchema.parse(parsedData);
     } catch (error) {
+      if (error instanceof SyntaxError) {
+        throw new Error("AI response was not valid JSON");
+      }
       throw new Error(
         `Failed to parse AI response into valid Profile: ${error}`
       );

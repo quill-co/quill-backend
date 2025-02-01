@@ -3,8 +3,9 @@ import { Profile, ProfileSchema } from "../../types/profile";
 import { z } from "zod";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { writeFile, unlink } from "fs/promises";
+import { writeFile, unlink, mkdir } from "fs/promises";
 import { join } from "path";
+import { existsSync } from "fs";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { google } from "@ai-sdk/google";
@@ -13,6 +14,7 @@ import { deepseek } from "@ai-sdk/deepseek";
 import { ExecException } from "child_process";
 
 const execAsync = promisify(exec);
+const PROFILES_DIR = join(process.cwd(), "bin", "data", "profiles");
 
 export type SupportedModel = "openai" | "anthropic" | "google" | "deepseek";
 
@@ -229,10 +231,27 @@ except Exception as e:
     }
   }
 
+  private async saveProfile(profile: Profile): Promise<string> {
+    // Create profiles directory if it doesn't exist
+    if (!existsSync(PROFILES_DIR)) {
+      await mkdir(PROFILES_DIR, { recursive: true });
+    }
+
+    // Generate filename from profile name
+    const safeName = profile.name.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const filePath = join(PROFILES_DIR, `${safeName}.json`);
+
+    // Save profile to file
+    await writeFile(filePath, JSON.stringify(profile, null, 2), "utf-8");
+    return filePath;
+  }
+
   async parseResume(pdfPath: string): Promise<Profile> {
     await this.setupPythonDependencies();
     const text = await this.extractTextFromPdf(pdfPath);
-    return this.parseTextToProfile(text);
+    const profile = await this.parseTextToProfile(text);
+    await this.saveProfile(profile);
+    return profile;
   }
 
   static async parseDefaultResume(options: ParserOptions): Promise<Profile> {

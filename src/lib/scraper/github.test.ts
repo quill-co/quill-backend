@@ -1,8 +1,8 @@
-import { GithubScraper } from "./google";
+import { GoogleScraper } from "./google";
 
-describe("GithubScraper", () => {
+describe("GoogleScraper", () => {
   it("should get job listings", async () => {
-    const scraper = new GithubScraper();
+    const scraper = new GoogleScraper();
     await scraper.init();
     const listings = await scraper.getJobListings();
     console.log(listings);

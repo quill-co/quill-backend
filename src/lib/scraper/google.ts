@@ -4,8 +4,10 @@ import { JobListing, JobListingSchema } from "../../types/listing";
 import { Scraper } from "../../types/scraper";
 import { createBrowser } from "../browser";
 import { z } from "zod";
+import { buildExtractionPrompt } from "../prompts";
+import logger from "../logger";
 
-export class GithubScraper implements Scraper {
+export class GoogleScraper implements Scraper {
   page?: Page;
 
   constructor() {
@@ -42,8 +44,6 @@ export class GithubScraper implements Scraper {
 
     logger.info(`Found ${listings.length} job listings`);
     console.log(listings);
-
-    await this.stagehand.close();
 
     return listings;
   }

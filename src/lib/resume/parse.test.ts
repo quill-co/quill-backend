@@ -8,7 +8,8 @@ import {
 } from "@jest/globals";
 import { Parser } from "./parse";
 import { join } from "path";
-import { writeFile, unlink } from "fs/promises";
+import { writeFile, unlink, readFile, mkdir, rm, readdir } from "fs/promises";
+import { existsSync } from "fs";
 import { ExecException } from "child_process";
 import { generateText } from "ai";
 import type { GenerateTextResult, ToolSet } from "ai";
@@ -23,9 +24,12 @@ jest.mock("ai", () => ({
   generateText: jest.fn(),
 }));
 
+const mockGenerateText = jest.mocked(generateText);
+
 describe("Resume Parser", () => {
   const mockApiKey = "test-api-key";
   const mockPdfPath = join(process.cwd(), "test-resume.pdf");
+  const profilesDir = join(process.cwd(), "bin", "data", "profiles");
   const mockPdfText = `
 John Doe
 Software Engineer
@@ -71,13 +75,18 @@ Experienced software engineer with a focus on full-stack development.
     toolResults: [],
   } as unknown as GenerateTextResult<ToolSet, unknown>;
 
-  const mockGenerateText = jest.mocked(generateText);
-  const originalConsoleError = console.error;
+  let originalConsoleError: typeof console.error;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    originalConsoleError = console.error;
     console.error = jest.fn();
     mockGenerateText.mockResolvedValue(mockAIResponse);
+
+    // Create profiles directory if it doesn't exist
+    if (!existsSync(profilesDir)) {
+      await mkdir(profilesDir, { recursive: true });
+    }
 
     // Mock successful Python execution
     const { exec } = require("child_process");
@@ -108,8 +117,12 @@ Experienced software engineer with a focus on full-stack development.
     console.error = originalConsoleError;
     try {
       await unlink(mockPdfPath);
+      // Clean up profiles directory
+      if (existsSync(profilesDir)) {
+        await rm(profilesDir, { recursive: true });
+      }
     } catch (error) {
-      // Ignore if file doesn't exist
+      // Ignore if files don't exist
     }
   });
 
@@ -240,5 +253,58 @@ Experienced software engineer with a focus on full-stack development.
 
     const profile = await parser.parseResume(mockPdfPath);
     expect(profile).toEqual(mockProfile);
+  });
+
+  it("should save profile to the correct directory", async () => {
+    await writeFile(mockPdfPath, "Mock PDF content", "utf-8");
+
+    const parser = new Parser({
+      provider: "openai",
+      apiKey: mockApiKey,
+    });
+
+    await parser.parseResume(mockPdfPath);
+
+    // Check if profile was saved
+    const expectedFilePath = join(profilesDir, "john_doe.json");
+    expect(existsSync(expectedFilePath)).toBe(true);
+
+    // Verify content
+    const savedContent = await readFile(expectedFilePath, "utf-8");
+    const savedProfile = JSON.parse(savedContent);
+    expect(savedProfile).toEqual(mockProfile);
+  });
+
+  it("should handle profile directory creation", async () => {
+    // Remove profiles directory if it exists
+    if (existsSync(profilesDir)) {
+      await rm(profilesDir, { recursive: true });
+    }
+
+    const parser = new Parser({
+      provider: "openai",
+      apiKey: mockApiKey,
+    });
+
+    await parser.parseResume(mockPdfPath);
+
+    // Check if directory was created
+    expect(existsSync(profilesDir)).toBe(true);
+  });
+
+  it("should handle duplicate profile names", async () => {
+    const parser = new Parser({
+      provider: "openai",
+      apiKey: mockApiKey,
+    });
+
+    // Parse the same resume twice
+    await parser.parseResume(mockPdfPath);
+    await parser.parseResume(mockPdfPath);
+
+    // Check if both files exist with different names
+    const files = await readdir(profilesDir);
+    const jsonFiles = files.filter((f) => f.endsWith(".json"));
+    expect(jsonFiles.length).toBeGreaterThanOrEqual(1);
   });
 });

@@ -1,17 +1,20 @@
 import { Profile, ProfileSchema } from "../../types/profile";
 
+import { z } from "zod";
+import { exec } from "child_process";
+import { promisify } from "util";
+import { writeFile, unlink, mkdir } from "fs/promises";
+import { join } from "path";
+import { existsSync } from "fs";
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
 import { anthropic } from "@ai-sdk/anthropic";
 import { deepseek } from "@ai-sdk/deepseek";
-import { google } from "@ai-sdk/google";
-import { openai } from "@ai-sdk/openai";
-import { generateText } from "ai";
-import { exec } from "child_process";
-import { unlink, writeFile } from "fs/promises";
-import { join } from "path";
-import { promisify } from "util";
-import logger from "../logger";
+import { ExecException } from "child_process";
 
 const execAsync = promisify(exec);
+const PROFILES_DIR = join(process.cwd(), "bin", "data", "profiles");
 
 export type SupportedModel = "openai" | "anthropic" | "google" | "deepseek";
 
@@ -37,7 +40,7 @@ export class Parser {
 
     // Set default models based on provider
     const defaultModels: Record<SupportedModel, string> = {
-      openai: "gpt-4o",
+      openai: "gpt-4",
       anthropic: "claude-3-opus-20240229",
       google: "gemini-pro",
       deepseek: "deepseek-chat",
@@ -121,8 +124,6 @@ Rules:
 7. Keep full descriptions for experience and projects`;
 
     try {
-      logger.info("Parsing resume with model:", this.model);
-
       const { text: response } = await generateText({
         model: this.getModelProvider(),
         temperature: 0,
@@ -230,10 +231,27 @@ except Exception as e:
     }
   }
 
+  private async saveProfile(profile: Profile): Promise<string> {
+    // Create profiles directory if it doesn't exist
+    if (!existsSync(PROFILES_DIR)) {
+      await mkdir(PROFILES_DIR, { recursive: true });
+    }
+
+    // Generate filename from profile name
+    const safeName = profile.name.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const filePath = join(PROFILES_DIR, `${safeName}.json`);
+
+    // Save profile to file
+    await writeFile(filePath, JSON.stringify(profile, null, 2), "utf-8");
+    return filePath;
+  }
+
   async parseResume(pdfPath: string): Promise<Profile> {
     await this.setupPythonDependencies();
     const text = await this.extractTextFromPdf(pdfPath);
-    return this.parseTextToProfile(text);
+    const profile = await this.parseTextToProfile(text);
+    await this.saveProfile(profile);
+    return profile;
   }
 
   static async parseDefaultResume(options: ParserOptions): Promise<Profile> {

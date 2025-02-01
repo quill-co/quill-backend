@@ -38,8 +38,8 @@ export class Parser {
 
     // Set default models based on provider
     const defaultModels: Record<SupportedModel, string> = {
-      openai: "gpt-4o",
-      anthropic: "claude-3.5-sonnet",
+      openai: "gpt-4",
+      anthropic: "claude-3-opus-20240229",
       google: "gemini-pro",
       deepseek: "deepseek-chat",
     };
@@ -63,62 +63,90 @@ export class Parser {
     }
   }
 
-  private async parseMarkdownToProfile(markdown: string): Promise<Profile> {
-    const prompt = `You are a resume parser. Convert this markdown resume into a JSON object with EXACTLY these fields:
+  private async parseTextToProfile(text: string): Promise<Profile> {
+    const prompt = `Extract structured information from this resume text into a JSON object.
+
+Resume text:
+${text}
+
+Required format:
 {
-  "name": "string",
+  "name": "Full name of the candidate",
   "contactInfo": {
-    "email": "string",
-    "phone": "string",
+    "email": "Email address (if not found, use 'not provided')",
+    "phone": "Phone number (if not found, use 'not provided')",
     "address": {
-      "street": "string",
-      "city": "string",
-      "state": "string",
-      "zip": "string",
-      "country": "string"
+      "street": "Street address or 'not provided'",
+      "city": "City name or closest major city",
+      "state": "State/Province",
+      "zip": "Postal/ZIP code or 'not provided'",
+      "country": "Country (default to 'USA' if not specified)"
     }
   },
-  "experiences": [{"company": "string", "position": "string", "startDate": "string", "description": "string"}],
-  "projects": [{"name": "string", "description": "string"}],
+  "experiences": [
+    {
+      "company": "Company name",
+      "position": "Job title",
+      "startDate": "Start date in YYYY-MM format",
+      "description": "Full job description"
+    }
+  ],
+  "projects": [
+    {
+      "name": "Project name",
+      "description": "Project description"
+    }
+  ],
   "resumeUrl": "https://example.com/resume",
-  "summary": "string",
-  "skills": ["string"],
-  "education": [{"institution": "string", "degree": "string", "startDate": "string"}],
+  "summary": "Professional summary or first paragraph of experience",
+  "skills": ["Skill 1", "Skill 2", "..."],
+  "education": [
+    {
+      "institution": "School name",
+      "degree": "Degree name and major",
+      "startDate": "Start date in YYYY-MM format"
+    }
+  ],
   "protectedVeteran": false,
-  "race": "string",
+  "race": "Prefer not to say",
   "needsSponsorship": false
 }
 
-RULES:
-1. Return ONLY valid JSON
-2. Do not include ANY explanatory text
-3. Use https://example.com/resume if no URL found
-4. Use "Prefer not to say" for missing demographic info
-
-RESUME TO PARSE:
-${markdown}`;
+Rules:
+1. Return ONLY the JSON object, no other text
+2. Ensure dates are in YYYY-MM format
+3. Include ALL fields, use placeholders for missing data
+4. Use "Prefer not to say" for demographic info if not explicitly stated
+5. Format text fields properly with correct capitalization
+6. Remove any markdown or special formatting
+7. Keep full descriptions for experience and projects`;
 
     try {
-      const { text } = await generateText({
+      const { text: response } = await generateText({
         model: this.getModelProvider(),
         temperature: 0,
         system:
-          "You are a JSON generator. Only output valid JSON objects. Never include explanatory text.",
+          "You are a precise resume parser that extracts structured data from text. Output only valid JSON.",
         prompt: prompt,
       });
 
-      if (!text) {
+      if (!response) {
         throw new Error("No content received from AI provider");
       }
 
       // Clean and validate the response
-      const cleanJson = text.replace(/```json\s*|\s*```/g, "").trim();
+      const cleanJson = response.replace(/```json\s*|\s*```/g, "").trim();
       if (!cleanJson.startsWith("{") || !cleanJson.endsWith("}")) {
         throw new Error("Response is not a JSON object");
       }
 
-      const parsedData = JSON.parse(cleanJson);
-      return ProfileSchema.parse(parsedData);
+      try {
+        const parsedData = JSON.parse(cleanJson);
+        return ProfileSchema.parse(parsedData);
+      } catch (parseError) {
+        console.error("Raw AI response:", response);
+        throw parseError;
+      }
     } catch (error) {
       if (error instanceof SyntaxError) {
         throw new Error("AI response was not valid JSON");
@@ -135,36 +163,17 @@ ${markdown}`;
       const pipPath = join(process.cwd(), ".venv/bin/pip");
 
       // Check Python version
-      await new Promise<void>((resolve, reject) => {
-        exec(
-          `${pythonPath} --version`,
-          (error: ExecException | null, stdout: string) => {
-            if (error) {
-              reject(
-                new Error(
-                  "Failed to check Python version. Please ensure Python is installed on your system."
-                )
-              );
-              return;
-            }
-            resolve();
-          }
+      await execAsync(`${pythonPath} --version`).catch(() => {
+        throw new Error(
+          "Python not found in virtual environment. Please ensure Python is installed."
         );
       });
 
-      // Install required Python package
-      await new Promise<void>((resolve, reject) => {
-        exec(`${pipPath} install markitdown`, (error: ExecException | null) => {
-          if (error) {
-            reject(
-              new Error(
-                "Failed to install Python dependencies. Please ensure pip is installed and working."
-              )
-            );
-            return;
-          }
-          resolve();
-        });
+      // Install pdfminer.six
+      await execAsync(`${pipPath} install --upgrade pdfminer.six`).catch(() => {
+        throw new Error(
+          "Failed to install pdfminer.six. Please ensure pip is working."
+        );
       });
     } catch (error) {
       throw new Error(
@@ -175,23 +184,25 @@ ${markdown}`;
     }
   }
 
-  private async convertPdfToMarkdown(pdfPath: string): Promise<string> {
+  private async extractTextFromPdf(pdfPath: string): Promise<string> {
     try {
       const pythonPath = join(process.cwd(), ".venv/bin/python");
-
-      // Escape the file path for Python
       const escapedPath = pdfPath.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 
       const pythonScript = `
 import sys
-sys.path.append('${process.cwd()}/.venv/lib/python3.*/site-packages')
-from markitdown import MarkItDown
-md = MarkItDown()
-result = md.convert('${escapedPath}')
-print(result.text_content)
-			`.trim();
+from pdfminer.high_level import extract_text
+try:
+    text = extract_text('${escapedPath}')
+    if not text.strip():
+        print("Error: No text content found in PDF", file=sys.stderr)
+        sys.exit(1)
+    print(text)
+except Exception as e:
+    print(f"Error: {str(e)}", file=sys.stderr)
+    sys.exit(1)
+      `.trim();
 
-      // Write the Python script to a temporary file
       const tempScriptPath = join(process.cwd(), "temp_script.py");
       await writeFile(tempScriptPath, pythonScript, "utf-8");
 
@@ -201,23 +212,27 @@ print(result.text_content)
         );
 
         if (stderr) {
-          console.warn("Warning from Python process:", stderr);
+          throw new Error(stderr);
         }
 
-        return stdout.trim();
+        const extractedText = stdout.trim();
+        if (!extractedText) {
+          throw new Error("No text content could be extracted from the PDF");
+        }
+
+        return extractedText;
       } finally {
-        // Clean up the temporary file
         await unlink(tempScriptPath).catch(console.error);
       }
     } catch (error) {
-      throw new Error(`Failed to convert PDF to markdown: ${error}`);
+      throw new Error(`Failed to extract text from PDF: ${error}`);
     }
   }
 
   async parseResume(pdfPath: string): Promise<Profile> {
-    const markdown = await this.convertPdfToMarkdown(pdfPath);
-    const profile = await this.parseMarkdownToProfile(markdown);
-    return profile;
+    await this.setupPythonDependencies();
+    const text = await this.extractTextFromPdf(pdfPath);
+    return this.parseTextToProfile(text);
   }
 
   static async parseDefaultResume(options: ParserOptions): Promise<Profile> {

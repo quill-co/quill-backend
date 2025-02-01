@@ -35,6 +35,9 @@ importers:
       pino-pretty:
         specifier: ^13.0.0
         version: 13.0.0
+      ws:
+        specifier: ^8.18.0
+        version: 8.18.0
       zod:
         specifier: ^3.24.1
         version: 3.24.1
@@ -51,6 +54,9 @@ importers:
       '@types/node':
         specifier: ^22.13.0
         version: 22.13.0
+      '@types/ws':
+        specifier: ^8.5.14
+        version: 8.5.14
       eslint:
         specifier: ^9.19.0
         version: 9.19.0
@@ -561,6 +567,9 @@ packages:
 
   '@types/stack-utils@2.0.3':
     resolution: {integrity: sha512-9aEbYZ3TbYMznPdcdr3SmIrLXwC/AKZXQeCf9Pgao5CKb8CyHuEX5jzWPTkvregvhRJHcpRO6BFoGW9ycaOkYw==}
+
+  '@types/ws@8.5.14':
+    resolution: {integrity: sha512-bd/YFLW+URhBzMXurx7lWByOu+xzU9+kb3RboOteXYDfW+tr+JZa99OyNmPINEGB/ahzKrEuc8rcv4gnpJmxTw==}
 
   '@types/yargs-parser@21.0.3':
     resolution: {integrity: sha512-I4q9QU9MQv4oEOz4tAHJtNz1cwuLxn2F3xcc2iV5WdqLPpUnj30aUuxt1mAxYTG+oe8CZMV/+6rU4S4gRDzqtQ==}
@@ -2616,6 +2625,10 @@ snapshots:
       undici-types: 6.20.0
 
   '@types/stack-utils@2.0.3': {}
+
+  '@types/ws@8.5.14':
+    dependencies:
+      '@types/node': 22.13.0
 
   '@types/yargs-parser@21.0.3': {}
 

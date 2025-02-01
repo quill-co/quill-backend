@@ -21,8 +21,8 @@ importers:
         specifier: ^1.1.9
         version: 1.1.9(zod@3.24.1)
       '@browserbasehq/stagehand':
-        specifier: ^1.11.0
-        version: 1.11.0(@playwright/test@1.50.1)(deepmerge@4.3.1)(dotenv@16.4.7)(openai@4.82.0(ws@8.18.0)(zod@3.24.1))(zod@3.24.1)
+        specifier: 1.12.0-alpha-b2160723923ed78eba83e75c7270634ca7d217de
+        version: 1.12.0-alpha-b2160723923ed78eba83e75c7270634ca7d217de(@playwright/test@1.50.1)(deepmerge@4.3.1)(dotenv@16.4.7)(openai@4.82.0(ws@8.18.0)(zod@3.24.1))(zod@3.24.1)
       ai:
         specifier: ^4.1.16
         version: 4.1.16(react@19.0.0)(zod@3.24.1)
@@ -310,8 +310,8 @@ packages:
   '@browserbasehq/sdk@2.2.0':
     resolution: {integrity: sha512-CWusIff7KenGfMwg/kNnrdOi+1JUIYpj8ZtEciuEUOEQVp3BEYqbaXk4FxCoQPvyO0h4eUVE5Banc9b3GQU01Q==}
 
-  '@browserbasehq/stagehand@1.11.0':
-    resolution: {integrity: sha512-I1gBsSouWXCOxl+FJMhB40XIjKnHmYFAfXDg4e/m2VR8YJqIOdLJeT6CQmgzKpre7JqplaAFqEcgifm+CK7mGQ==}
+  '@browserbasehq/stagehand@1.12.0-alpha-b2160723923ed78eba83e75c7270634ca7d217de':
+    resolution: {integrity: sha512-GXLk/yS2WgMbYGcY/9fTzInqA6AMXlsUEQ+FuQWsf3w+CIKkQ+2LJRHRXKZilrcjlfdapvTQw7Vd1kRID0QRoA==}
     peerDependencies:
       '@playwright/test': ^1.42.1
       deepmerge: ^4.3.1
@@ -2251,7 +2251,7 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@browserbasehq/stagehand@1.11.0(@playwright/test@1.50.1)(deepmerge@4.3.1)(dotenv@16.4.7)(openai@4.82.0(ws@8.18.0)(zod@3.24.1))(zod@3.24.1)':
+  '@browserbasehq/stagehand@1.12.0-alpha-b2160723923ed78eba83e75c7270634ca7d217de(@playwright/test@1.50.1)(deepmerge@4.3.1)(dotenv@16.4.7)(openai@4.82.0(ws@8.18.0)(zod@3.24.1))(zod@3.24.1)':
     dependencies:
       '@anthropic-ai/sdk': 0.27.3
       '@browserbasehq/sdk': 2.2.0

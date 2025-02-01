@@ -1,6 +1,6 @@
-import { Page, Stagehand } from "@browserbasehq/stagehand";
+import { Stagehand } from "@browserbasehq/stagehand";
 
-export async function createBrowser(): Promise<Page> {
+export async function createBrowser(): Promise<Stagehand> {
   const stagehand = new Stagehand({
     apiKey: process.env.BROWSERBASE_API_KEY,
     env: process.env.ENVIRONMENT === "development" ? "LOCAL" : "BROWSERBASE",
@@ -12,7 +12,5 @@ export async function createBrowser(): Promise<Page> {
 
   await stagehand.init();
 
-  const { page } = stagehand;
-
-  return page;
+  return stagehand;
 }

@@ -1,4 +1,4 @@
-import { Page } from "@browserbasehq/stagehand";
+import { Page, Stagehand } from "@browserbasehq/stagehand";
 import { z } from "zod";
 import { PageNotInitializedError } from "../../types/error";
 import { JobListing, JobListingSchema } from "../../types/listing";
@@ -8,13 +8,15 @@ import { buildExtractionPrompt } from "../prompts";
 
 export class GoogleScraper implements Scraper {
   page?: Page;
+  stagehand?: Stagehand;
 
   constructor() {
     this.page = undefined;
+    this.stagehand = undefined;
   }
 
   async init(): Promise<void> {
-    this.page = await createBrowser();
+    this.stagehand = await createBrowser();
   }
 
   private buildSearchUrl(query: string): string {
@@ -23,7 +25,7 @@ export class GoogleScraper implements Scraper {
   }
 
   async getJobListings(): Promise<JobListing[]> {
-    if (!this.page) {
+    if (!this.stagehand || !this.page) {
       throw new PageNotInitializedError();
     }
 
@@ -39,6 +41,8 @@ export class GoogleScraper implements Scraper {
         listings: z.array(JobListingSchema),
       }),
     });
+
+    await this.stagehand?.close();
 
     return listings;
   }

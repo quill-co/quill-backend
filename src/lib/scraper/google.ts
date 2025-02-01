@@ -38,7 +38,6 @@ export class GoogleScraper implements Scraper {
       schema: z.object({
         listings: z.array(JobListingSchema),
       }),
-      useTextExtract: true,
     });
 
     return listings;

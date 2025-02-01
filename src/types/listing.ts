@@ -7,7 +7,12 @@ export const JobListingSchema = z.object({
   description: z
     .string()
     .describe("The description of the job. Create one if it's not provided."),
-  url: z.string().describe("The url of the job listing"),
+  url: z
+    .string()
+    .describe("The url of the job listing")
+    .describe(
+      "Put the exact job URL. Not the URL for the job board, but for the exact job post."
+    ),
 });
 
 export type JobListing = z.infer<typeof JobListingSchema>;

@@ -1,16 +1,15 @@
 import { Profile, ProfileSchema } from "../../types/profile";
 
-import { z } from "zod";
-import { exec } from "child_process";
-import { promisify } from "util";
-import { writeFile, unlink } from "fs/promises";
-import { join } from "path";
-import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
-import { google } from "@ai-sdk/google";
 import { anthropic } from "@ai-sdk/anthropic";
 import { deepseek } from "@ai-sdk/deepseek";
-import { ExecException } from "child_process";
+import { google } from "@ai-sdk/google";
+import { openai } from "@ai-sdk/openai";
+import { generateText } from "ai";
+import { exec } from "child_process";
+import { unlink, writeFile } from "fs/promises";
+import { join } from "path";
+import { promisify } from "util";
+import logger from "../logger";
 
 const execAsync = promisify(exec);
 
@@ -38,7 +37,7 @@ export class Parser {
 
     // Set default models based on provider
     const defaultModels: Record<SupportedModel, string> = {
-      openai: "gpt-4",
+      openai: "gpt-4o",
       anthropic: "claude-3-opus-20240229",
       google: "gemini-pro",
       deepseek: "deepseek-chat",
@@ -122,6 +121,8 @@ Rules:
 7. Keep full descriptions for experience and projects`;
 
     try {
+      logger.info("Parsing resume with model:", this.model);
+
       const { text: response } = await generateText({
         model: this.getModelProvider(),
         temperature: 0,

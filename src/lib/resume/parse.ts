@@ -243,7 +243,7 @@ print(result.text_content)
 
 	static async parseDefaultResume(options: ParserOptions): Promise<Profile> {
 		const parser = new Parser(options);
-		const defaultResumePath = join(process.cwd(), "config", "resume.pdf");
+		const defaultResumePath = join(process.cwd(), "bin", "resume.pdf");
 		return parser.parseResume(defaultResumePath);
 	}
 }

@@ -17,7 +17,7 @@
     "@ai-sdk/deepseek": "^0.1.8",
     "@ai-sdk/google": "^1.1.8",
     "@ai-sdk/openai": "^1.1.9",
-    "@browserbasehq/stagehand": "^1.11.0",
+    "@browserbasehq/stagehand": "1.12.0-alpha-b2160723923ed78eba83e75c7270634ca7d217de",
     "ai": "^4.1.16",
     "dotenv": "^16.4.7",
     "pino": "^9.6.0",

@@ -17,54 +17,54 @@ const execAsync = promisify(exec);
 export type SupportedModel = "openai" | "anthropic" | "google" | "deepseek";
 
 export interface ParserOptions {
-	provider: SupportedModel;
-	model?: string;
-	temperature?: number;
-	apiKey: string;
-	pythonPath?: string;
+  provider: SupportedModel;
+  model?: string;
+  temperature?: number;
+  apiKey: string;
+  pythonPath?: string;
 }
 
 export class Parser {
-	private provider: SupportedModel;
-	private model: string;
-	private temperature: number;
-	private apiKey: string;
-	private pythonPath: string;
+  private provider: SupportedModel;
+  private model: string;
+  private temperature: number;
+  private apiKey: string;
+  private pythonPath: string;
 
-	constructor(options: ParserOptions) {
-		this.provider = options.provider;
-		this.apiKey = options.apiKey;
-		this.pythonPath = options.pythonPath || "python";
+  constructor(options: ParserOptions) {
+    this.provider = options.provider;
+    this.apiKey = options.apiKey;
+    this.pythonPath = options.pythonPath || "python";
 
-		// Set default models based on provider
-		const defaultModels: Record<SupportedModel, string> = {
-			openai: "gpt-4",
-			anthropic: "claude-3-opus-20240229",
-			google: "gemini-pro",
-			deepseek: "deepseek-chat",
-		};
+    // Set default models based on provider
+    const defaultModels: Record<SupportedModel, string> = {
+      openai: "gpt-4",
+      anthropic: "claude-3-opus-20240229",
+      google: "gemini-pro",
+      deepseek: "deepseek-chat",
+    };
 
-		this.model = options.model || defaultModels[this.provider];
-		this.temperature = options.temperature || 0;
-	}
+    this.model = options.model || defaultModels[this.provider];
+    this.temperature = options.temperature || 0;
+  }
 
-	private getModelProvider() {
-		switch (this.provider) {
-			case "openai":
-				return openai(this.model);
-			case "anthropic":
-				return anthropic(this.model);
-			case "google":
-				return google(this.model);
-			case "deepseek":
-				return deepseek(this.model);
-			default:
-				throw new Error(`Unsupported provider: ${this.provider}`);
-		}
-	}
+  private getModelProvider() {
+    switch (this.provider) {
+      case "openai":
+        return openai(this.model);
+      case "anthropic":
+        return anthropic(this.model);
+      case "google":
+        return google(this.model);
+      case "deepseek":
+        return deepseek(this.model);
+      default:
+        throw new Error(`Unsupported provider: ${this.provider}`);
+    }
+  }
 
-	private async parseMarkdownToProfile(markdown: string): Promise<Profile> {
-		const prompt = `
+  private async parseMarkdownToProfile(markdown: string): Promise<Profile> {
+    const prompt = `
 Parse the following resume markdown into a structured JSON object.
 The JSON must include ALL of these required fields:
 - name (string)
@@ -126,84 +126,84 @@ IMPORTANT:
 3. All URL fields (resumeUrl, linkedin, github, etc.) must be valid URLs starting with http:// or https://.
 4. If a URL is not found in the resume, use a placeholder like https://example.com/resume.`;
 
-		try {
-			const { text } = await generateText({
-				model: this.getModelProvider(),
-				temperature: this.temperature,
-				system:
-					"You are a resume parser that converts markdown resumes into structured JSON data. Always return valid JSON without any markdown formatting or additional text. Ensure all required fields are present with appropriate values, using placeholder URLs when needed.",
-				prompt: prompt,
-			});
+    try {
+      const { text } = await generateText({
+        model: this.getModelProvider(),
+        temperature: this.temperature,
+        system:
+          "You are a resume parser that converts markdown resumes into structured JSON data. Always return valid JSON without any markdown formatting or additional text. Ensure all required fields are present with appropriate values, using placeholder URLs when needed.",
+        prompt: prompt,
+      });
 
-			if (!text) {
-				throw new Error("No content received from AI provider");
-			}
+      if (!text) {
+        throw new Error("No content received from AI provider");
+      }
 
-			// Clean the response to ensure it's valid JSON
-			const cleanJson = text.replace(/```json\s*|\s*```/g, "").trim();
-			const parsedData = JSON.parse(cleanJson);
-			return ProfileSchema.parse(parsedData);
-		} catch (error) {
-			throw new Error(
-				`Failed to parse AI response into valid Profile: ${error}`
-			);
-		}
-	}
+      // Clean the response to ensure it's valid JSON
+      const cleanJson = text.replace(/```json\s*|\s*```/g, "").trim();
+      const parsedData = JSON.parse(cleanJson);
+      return ProfileSchema.parse(parsedData);
+    } catch (error) {
+      throw new Error(
+        `Failed to parse AI response into valid Profile: ${error}`
+      );
+    }
+  }
 
-	private async setupPythonDependencies(): Promise<void> {
-		try {
-			const pythonPath = join(process.cwd(), ".venv/bin/python");
-			const pipPath = join(process.cwd(), ".venv/bin/pip");
+  private async setupPythonDependencies(): Promise<void> {
+    try {
+      const pythonPath = join(process.cwd(), ".venv/bin/python");
+      const pipPath = join(process.cwd(), ".venv/bin/pip");
 
-			// Check Python version
-			await new Promise<void>((resolve, reject) => {
-				exec(
-					`${pythonPath} --version`,
-					(error: ExecException | null, stdout: string) => {
-						if (error) {
-							reject(
-								new Error(
-									"Failed to check Python version. Please ensure Python is installed on your system."
-								)
-							);
-							return;
-						}
-						resolve();
-					}
-				);
-			});
+      // Check Python version
+      await new Promise<void>((resolve, reject) => {
+        exec(
+          `${pythonPath} --version`,
+          (error: ExecException | null, stdout: string) => {
+            if (error) {
+              reject(
+                new Error(
+                  "Failed to check Python version. Please ensure Python is installed on your system."
+                )
+              );
+              return;
+            }
+            resolve();
+          }
+        );
+      });
 
-			// Install required Python package
-			await new Promise<void>((resolve, reject) => {
-				exec(`${pipPath} install markitdown`, (error: ExecException | null) => {
-					if (error) {
-						reject(
-							new Error(
-								"Failed to install Python dependencies. Please ensure pip is installed and working."
-							)
-						);
-						return;
-					}
-					resolve();
-				});
-			});
-		} catch (error) {
-			throw new Error(
-				`Failed to set up Python dependencies: ${
-					error instanceof Error ? error.message : String(error)
-				}`
-			);
-		}
-	}
+      // Install required Python package
+      await new Promise<void>((resolve, reject) => {
+        exec(`${pipPath} install markitdown`, (error: ExecException | null) => {
+          if (error) {
+            reject(
+              new Error(
+                "Failed to install Python dependencies. Please ensure pip is installed and working."
+              )
+            );
+            return;
+          }
+          resolve();
+        });
+      });
+    } catch (error) {
+      throw new Error(
+        `Failed to set up Python dependencies: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+  }
 
-	private async convertPdfToMarkdown(pdfPath: string): Promise<string> {
-		try {
-			const pythonPath = join(process.cwd(), ".venv/bin/python");
+  private async convertPdfToMarkdown(pdfPath: string): Promise<string> {
+    try {
+      const pythonPath = join(process.cwd(), ".venv/bin/python");
 
-			// Escape the file path for Python
-			const escapedPath = pdfPath.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+      // Escape the file path for Python
+      const escapedPath = pdfPath.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 
-			const pythonScript = `
+      const pythonScript = `
 import sys
 sys.path.append('${process.cwd()}/.venv/lib/python3.*/site-packages')
 from markitdown import MarkItDown
@@ -212,38 +212,38 @@ result = md.convert('${escapedPath}')
 print(result.text_content)
 			`.trim();
 
-			// Write the Python script to a temporary file
-			const tempScriptPath = join(process.cwd(), "temp_script.py");
-			await writeFile(tempScriptPath, pythonScript, "utf-8");
+      // Write the Python script to a temporary file
+      const tempScriptPath = join(process.cwd(), "temp_script.py");
+      await writeFile(tempScriptPath, pythonScript, "utf-8");
 
-			try {
-				const { stdout, stderr } = await execAsync(
-					`${pythonPath} ${tempScriptPath}`
-				);
+      try {
+        const { stdout, stderr } = await execAsync(
+          `${pythonPath} ${tempScriptPath}`
+        );
 
-				if (stderr) {
-					console.warn("Warning from Python process:", stderr);
-				}
+        if (stderr) {
+          console.warn("Warning from Python process:", stderr);
+        }
 
-				return stdout.trim();
-			} finally {
-				// Clean up the temporary file
-				await unlink(tempScriptPath).catch(console.error);
-			}
-		} catch (error) {
-			throw new Error(`Failed to convert PDF to markdown: ${error}`);
-		}
-	}
+        return stdout.trim();
+      } finally {
+        // Clean up the temporary file
+        await unlink(tempScriptPath).catch(console.error);
+      }
+    } catch (error) {
+      throw new Error(`Failed to convert PDF to markdown: ${error}`);
+    }
+  }
 
-	async parseResume(pdfPath: string): Promise<Profile> {
-		const markdown = await this.convertPdfToMarkdown(pdfPath);
-		const profile = await this.parseMarkdownToProfile(markdown);
-		return profile;
-	}
+  async parseResume(pdfPath: string): Promise<Profile> {
+    const markdown = await this.convertPdfToMarkdown(pdfPath);
+    const profile = await this.parseMarkdownToProfile(markdown);
+    return profile;
+  }
 
-	static async parseDefaultResume(options: ParserOptions): Promise<Profile> {
-		const parser = new Parser(options);
-		const defaultResumePath = join(process.cwd(), "bin", "resume.pdf");
-		return parser.parseResume(defaultResumePath);
-	}
+  static async parseDefaultResume(options: ParserOptions): Promise<Profile> {
+    const parser = new Parser(options);
+    const defaultResumePath = join(process.cwd(), "bin", "resume.pdf");
+    return parser.parseResume(defaultResumePath);
+  }
 }

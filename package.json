@@ -13,13 +13,14 @@
   "license": "ISC",
   "dependencies": {
     "@ai-sdk/anthropic": "^1.1.6",
-    "@ai-sdk/deepseek": "^0.1.8", 
+    "@ai-sdk/deepseek": "^0.1.8",
     "@ai-sdk/google": "^1.1.8",
     "@ai-sdk/openai": "^1.1.9",
     "@browserbasehq/stagehand": "^1.11.0",
     "ai": "^4.1.16",
     "dotenv": "^16.4.7",
     "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {

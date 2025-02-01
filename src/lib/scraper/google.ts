@@ -1,11 +1,10 @@
 import { Page } from "@browserbasehq/stagehand";
+import { z } from "zod";
 import { PageNotInitializedError } from "../../types/error";
 import { JobListing, JobListingSchema } from "../../types/listing";
 import { Scraper } from "../../types/scraper";
 import { createBrowser } from "../browser";
-import { z } from "zod";
 import { buildExtractionPrompt } from "../prompts";
-import logger from "../logger";
 
 export class GoogleScraper implements Scraper {
   page?: Page;
@@ -41,9 +40,6 @@ export class GoogleScraper implements Scraper {
       }),
       useTextExtract: true,
     });
-
-    logger.info(`Found ${listings.length} job listings`);
-    console.log(listings);
 
     return listings;
   }

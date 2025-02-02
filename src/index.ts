@@ -1,14 +1,17 @@
 // import { GoogleScraper } from "./lib/scraper/google";
+// import GreenhouseWorker from "./lib/workers/greenhouse";
+import dotenv from "dotenv";
 import GreenhouseWorker from "./lib/workers/greenhouse";
-import { Parser } from "./lib/resume/parse";
+
+dotenv.config();
 
 (async () => {
-  const profile = await Parser.parseDefaultResume({
-    provider: "openai",
-    apiKey: process.env.OPENAI_API_KEY!,
-  });
+  // const profile = await Parser.parseDefaultResume({
+  //   provider: "openai",
+  //   apiKey: process.env.OPENAI_API_KEY!,
+  // });
 
-  console.log(profile);
+  // console.log(profile);
 
   // const scraper = new GoogleScraper();
   // await scraper.init();
@@ -19,10 +22,9 @@ import { Parser } from "./lib/resume/parse";
   await worker.init();
   await worker.apply({
     title: "Software Engineering Intern - US - San Francisco, CA",
-    company: "Samsara",
-    location: "San Francisco, CA",
-    description:
-      "About our Software Engineering Internships: We are seeking early-in-career software engineers to join various engineering teams for 12 weeks in Summer 2025!",
-    url: "https://boards.greenhouse.io/samsara/jobs/6295077?utm_source=General+Catalyst+job+board&utm_medium=getro.com&gh_src=General+Catalyst+job+board",
+    company: "Clear",
+    location: "New York, NY",
+    description: "Software Engineering Intern - US - New York, NY",
+    url: "https://boards.greenhouse.io/clear/jobs/6516361",
   });
 })();

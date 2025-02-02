@@ -8,6 +8,7 @@ export async function createBrowser(): Promise<Stagehand> {
       projectId: process.env.BROWSERBASE_PROJECT_ID!,
       region: "us-east-1",
     },
+    headless: true,
   });
 
   await stagehand.init();

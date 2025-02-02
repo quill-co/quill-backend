@@ -95,7 +95,7 @@ describe("SocketServer", () => {
       ws2.on("message", messageHandler);
 
       // Send broadcast after setting up listeners
-      server.broadcast(broadcastData);
+      server.broadcast({ type: "broadcast", message: "Test message" });
     });
   }, 10000);
 

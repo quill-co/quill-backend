@@ -1,4 +1,4 @@
-import { Page, Stagehand } from "@browserbasehq/stagehand";
+import { Stagehand } from "@browserbasehq/stagehand";
 import { z } from "zod";
 import { PageNotInitializedError } from "../../types/error";
 import { JobListing, JobListingSchema } from "../../types/listing";
@@ -7,11 +7,9 @@ import { createBrowser } from "../browser";
 import { buildExtractionPrompt } from "../prompts";
 
 export class GoogleScraper implements Scraper {
-  page?: Page;
   stagehand?: Stagehand;
 
   constructor() {
-    this.page = undefined;
     this.stagehand = undefined;
   }
 
@@ -25,17 +23,19 @@ export class GoogleScraper implements Scraper {
   }
 
   async getJobListings(): Promise<JobListing[]> {
-    if (!this.stagehand || !this.page) {
+    if (!this.stagehand) {
       throw new PageNotInitializedError();
     }
 
+    const { page } = this.stagehand;
+
     const searchUrl = this.buildSearchUrl(
-      "united states software intern apply site:boards.greenhouse.io"
+      "united states docugami software intern apply site:boards.greenhouse.io"
     );
 
-    await this.page.goto(searchUrl);
+    await page.goto(searchUrl);
 
-    const { listings } = await this.page.extract({
+    const { listings } = await page.extract({
       instruction: buildExtractionPrompt(),
       schema: z.object({
         listings: z.array(JobListingSchema),

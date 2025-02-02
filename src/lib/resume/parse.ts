@@ -1,14 +1,14 @@
-import { Profile, ProfileSchema } from "../../types/profile";
 import { anthropic } from "@ai-sdk/anthropic";
 import { deepseek } from "@ai-sdk/deepseek";
 import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
-import { generateText } from "ai";
+import { generateObject, NoObjectGeneratedError } from "ai";
 import { exec } from "child_process";
 import { existsSync } from "fs";
 import { mkdir, unlink, writeFile } from "fs/promises";
 import { join } from "path";
 import { promisify } from "util";
+import { Profile, ProfileSchema } from "../../types/profile";
 
 const execAsync = promisify(exec);
 const PROFILES_DIR = join(process.cwd(), "bin", "data", "profiles");
@@ -37,7 +37,7 @@ export class Parser {
 
     // Set default models based on provider
     const defaultModels: Record<SupportedModel, string> = {
-      openai: "gpt-4",
+      openai: "gpt-4o",
       anthropic: "claude-3-opus-20240229",
       google: "gemini-pro",
       deepseek: "deepseek-chat",
@@ -66,90 +66,45 @@ export class Parser {
     const prompt = `Extract structured information from this resume text into a JSON object.
 
 Resume text:
-${text}
-
-Required format:
-{
-  "name": "Full name of the candidate",
-  "contactInfo": {
-    "email": "Email address (if not found, use 'not provided')",
-    "phone": "Phone number (if not found, use 'not provided')",
-    "address": {
-      "street": "Street address or 'not provided'",
-      "city": "City name or closest major city",
-      "state": "State/Province",
-      "zip": "Postal/ZIP code or 'not provided'",
-      "country": "Country (default to 'USA' if not specified)"
-    }
-  },
-  "experiences": [
-    {
-      "company": "Company name",
-      "position": "Job title",
-      "startDate": "Start date in YYYY-MM format",
-      "description": "Full job description"
-    }
-  ],
-  "projects": [
-    {
-      "name": "Project name",
-      "description": "Project description"
-    }
-  ],
-  "resumeUrl": "Full URL including https:// (use https://example.com/resume if not found)",
-  "summary": "Professional summary or first paragraph of experience",
-  "skills": ["Skill 1", "Skill 2", "..."],
-  "education": [
-    {
-      "institution": "School name",
-      "degree": "Degree name and major",
-      "startDate": "Start date in YYYY-MM format"
-    }
-  ],
-  "protectedVeteran": false,
-  "race": "Prefer not to say",
-  "needsSponsorship": false
-}
-
-Rules:
-1. Return ONLY the JSON object, no other text
-2. Ensure dates are in YYYY-MM format
-3. Include ALL fields, use placeholders for missing data
-4. Use "Prefer not to say" for demographic info if not explicitly stated
-5. Format text fields properly with correct capitalization
-6. Remove any markdown or special formatting
-7. Keep full descriptions for experience and projects
-8. For resumeUrl, ALWAYS include https:// prefix (e.g., convert "sameel.dev" to "https://sameel.dev")`;
+${text}`;
 
     try {
-      const { text: response } = await generateText({
+      const { object: response } = await generateObject({
         model: this.getModelProvider(),
-        temperature: 0,
         system:
-          "You are a precise resume parser that extracts structured data from text. Output only valid JSON.",
+          "You are a precise resume parser that extracts structured data from text.",
         prompt: prompt,
+        schema: ProfileSchema,
       });
 
       if (!response) {
         throw new Error("No content received from AI provider");
       }
 
-      // Clean and validate the response
-      const cleanJson = response.replace(/```json\s*|\s*```/g, "").trim();
-      if (!cleanJson.startsWith("{") || !cleanJson.endsWith("}")) {
-        throw new Error("Response is not a JSON object");
-      }
+      return response;
 
-      try {
-        const parsedData = JSON.parse(cleanJson);
-        return ProfileSchema.parse(parsedData);
-      } catch (parseError) {
-        console.error("Raw AI response:", response);
-        throw parseError;
-      }
+      //   // Clean and validate the response
+      //   const cleanJson = response.replace(/```json\s*|\s*```/g, "").trim();
+      //   if (!cleanJson.startsWith("{") || !cleanJson.endsWith("}")) {
+      //     throw new Error("Response is not a JSON object");
+      //   }
+
+      //   try {
+      //     const parsedData = JSON.parse(cleanJson);
+      //     return ProfileSchema.parse(parsedData);
+      //   } catch (parseError) {
+      //     console.error("Raw AI response:", response);
+      //     throw parseError;
+      //   }
     } catch (error) {
       if (error instanceof SyntaxError) {
         throw new Error("AI response was not valid JSON");
+      } else if (NoObjectGeneratedError.isInstance(error)) {
+        console.log("NoObjectGeneratedError");
+        console.log("Cause:", error.cause);
+        console.log("Text:", error.text);
+        console.log("Response:", error.response);
+        console.log("Usage:", error.usage);
       }
       throw new Error(
         `Failed to parse AI response into valid Profile: ${error}`

@@ -7,7 +7,7 @@ export interface Session {
   id: string;
   ws: WebSocket;
   lastPing: number;
-  data: any;
+  data: object;
 }
 
 export type Message = {
@@ -24,7 +24,7 @@ export type Message = {
   message?: string;
   status?: string;
   sessionId?: string;
-  data?: any;
+  data?: object;
   timestamp?: number;
 };
 

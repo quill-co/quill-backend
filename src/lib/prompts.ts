@@ -1,3 +1,3 @@
 export const buildExtractionPrompt = () => {
-  return `Extract up to 5 job listings from the page`;
+  return `Extract one job listing from the page`;
 };

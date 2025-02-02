@@ -48,7 +48,6 @@ A powerful automated job application system with real-time progress tracking and
 - **WebSocket** for real-time communication
 - **Browserbase** for running browser automations on the cloud
 - **Stagehand** for AI browser automation
-- **Puppeteer** for browser automation
 - **Multer** for file uploads
 - **Zod** for runtime type validation
 

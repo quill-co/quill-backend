@@ -2,6 +2,11 @@
 
 A powerful automated job application system with real-time progress tracking and AI-powered resume parsing.
 
+## Contributors
+
+- Dominic [@reb0und](https://rebound.sh/) - Backend Developer, Freshman at Stevens
+- Sameel [@sameelarif](https://www.sameel.dev) - Software Developer, Junior at Rutgers
+
 ## Features
 
 ### Resume Parsing

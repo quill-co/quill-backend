@@ -19,23 +19,16 @@ export interface ParserOptions {
   provider: SupportedModel;
   model?: string;
   temperature?: number;
-  apiKey: string;
   pythonPath?: string;
 }
 
 export class Parser {
   private provider: SupportedModel;
   private model: string;
-  private temperature: number;
-  private apiKey: string;
-  private pythonPath: string;
 
   constructor(options: ParserOptions) {
     this.provider = options.provider;
-    this.apiKey = options.apiKey;
-    this.pythonPath = options.pythonPath || "python";
 
-    // Set default models based on provider
     const defaultModels: Record<SupportedModel, string> = {
       openai: "gpt-4o",
       anthropic: "claude-3-opus-20240229",
@@ -44,7 +37,6 @@ export class Parser {
     };
 
     this.model = options.model || defaultModels[this.provider];
-    this.temperature = options.temperature || 0;
   }
 
   private getModelProvider() {

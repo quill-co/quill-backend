@@ -2,84 +2,116 @@ import path from "path";
 import { JobListing } from "../../types/listing";
 import { ProfileManager } from "../../util/profiles";
 import { BaseWorker } from "./base";
-import logger from "../logger";
+import { SocketServer } from "../socket/socket";
 
 export default class GreenhouseWorker extends BaseWorker {
-  constructor() {
-    super();
+  constructor(socketServer?: SocketServer, clientId?: string) {
+    super(socketServer, clientId);
   }
 
   async apply(listing: JobListing): Promise<void> {
-    this.log(`Applying to ${listing.title} at ${listing.company}`);
-
-    const { page } = this.stagehand;
-
-    await page.goto(listing.url);
-
-    const profile = await ProfileManager.loadLatestProfile();
-
-    if (!profile) {
-      this.log("No profile found");
-      return;
-    }
-
-    await page.getByLabel("First Name *").fill(profile.name.split(" ")[0]);
-    await page.getByLabel("Last Name *").fill(profile.name.split(" ")[1]);
-    await page.getByLabel("Email *").fill(profile.contactInfo.email);
-    await page.getByLabel("Phone").fill(profile.contactInfo.phone);
-
-    if (profile.contactInfo.linkedin) {
-      await page
-        .getByLabel("LinkedIn Profile")
-        .fill(profile.contactInfo.linkedin);
-    }
-    if (profile.contactInfo.website) {
-      await page.getByLabel("Website").fill(profile.contactInfo.website);
-    }
-    logger.info("Uploading resume");
-    const resumePath = path.join(process.cwd(), "bin/resume.pdf");
-    const fileInput = await page.$('input[type="file"]');
-    if (!fileInput) {
-      throw new Error("Could not find file input");
-    }
-    await fileInput.setInputFiles(resumePath);
-
-    // Wait for upload to complete
-    await page.waitForSelector(".chosen", { state: "visible" });
-    await page.waitForSelector(".progress-bar", { state: "hidden" });
-    logger.info("Upload complete");
-
-    // Fill in education institution
-    await page.click("#select2-chosen-1");
-    const institution = profile.education[0].institution;
-    const words = institution.split(" ");
-    let found = false;
-
-    for (let i = 1; i <= words.length && !found; i++) {
-      const partial = words.slice(0, i).join(" ");
-      await page.locator("#s2id_autogen1_search").fill(partial);
-      await page.waitForTimeout(500);
-
-      const results = await page.locator(".select2-results li").count();
-      if (results > 0) {
-        found = true;
-        await page.keyboard.press("Enter");
+    try {
+      this.log(`Applying to ${listing.title} at ${listing.company}`);
+      if (this.socketServer && this.clientId) {
+        this.socketServer.sendToClient(this.clientId, {
+          type: "status",
+          status: "applying",
+        });
       }
+
+      const { page } = this.stagehand;
+
+      await page.goto(listing.url);
+
+      const profile = await ProfileManager.loadLatestProfile();
+
+      if (!profile) {
+        this.log("No profile found");
+        if (this.socketServer && this.clientId) {
+          this.socketServer.sendToClient(this.clientId, {
+            type: "error",
+            message: "No profile found",
+          });
+        }
+        return;
+      }
+
+      await page.getByLabel("First Name *").fill(profile.name.split(" ")[0]);
+      await page.getByLabel("Last Name *").fill(profile.name.split(" ")[1]);
+      await page.getByLabel("Email *").fill(profile.contactInfo.email);
+      await page.getByLabel("Phone *").fill(profile.contactInfo.phone);
+
+      await page
+        .getByLabel("Location (City)")
+        .fill(profile.contactInfo.address.city);
+      if (profile.contactInfo.linkedin) {
+        await page
+          .getByLabel("LinkedIn Profile")
+          .fill(profile.contactInfo.linkedin);
+      }
+      if (profile.contactInfo.website) {
+        await page.getByLabel("Website").fill(profile.contactInfo.website);
+      }
+
+      // Upload resume
+      const resumePath = path.join(process.cwd(), "bin/resume.pdf");
+      const fileInput = await page.$('input[type="file"]');
+      if (!fileInput) {
+        throw new Error("Could not find file input");
+      }
+      await fileInput.setInputFiles(resumePath);
+
+      // Wait for upload to complete
+      await page.waitForSelector(".chosen", { state: "visible" });
+      await page.waitForSelector(".progress-bar", { state: "hidden" });
+
+      // Fill education fields
+      await page.getByLabel("School").click();
+      await page.keyboard.type(profile.education[0].institution);
+      await page.keyboard.press("Enter");
+
+      await page.getByLabel("Degree").click();
+      // Map degree to Greenhouse's options
+      const degreeText = profile.education[0].degree.toLowerCase();
+      let degreeOption = "Bachelor's Degree"; // Default
+      if (
+        degreeText.includes("bachelor") ||
+        degreeText.includes("bs") ||
+        degreeText.includes("b.s.")
+      ) {
+        degreeOption = "Bachelor's Degree";
+      } else if (degreeText.includes("master")) {
+        degreeOption = "Master's Degree";
+      } else if (
+        degreeText.includes("phd") ||
+        degreeText.includes("doctor of philosophy")
+      ) {
+        degreeOption = "Doctor of Philosophy (Ph.D.)";
+      } else {
+        degreeOption = "Bachelor's Degree";
+      }
+      await page.keyboard.type(degreeOption);
+      await page.keyboard.press("Enter");
+
+      await page.getByRole("button", { name: "Submit Application" }).click();
+      if (this.socketServer && this.clientId) {
+        this.socketServer.sendToClient(this.clientId, {
+          type: "status",
+          status: "submitted",
+        });
+      }
+
+      await page.waitForTimeout(1000);
+      await this.finish();
+    } catch (error) {
+      if (this.socketServer && this.clientId) {
+        this.socketServer.sendToClient(this.clientId, {
+          type: "error",
+          message:
+            error instanceof Error ? error.message : "Unknown error occurred",
+        });
+      }
+      throw error;
     }
-
-    if (!found) {
-      this.log("Could not find institution match");
-    }
-    // Fill in degree type
-    await page.click("#select2-chosen-2");
-    await page
-      .locator("#s2id_autogen2_search")
-      .pressSequentially(profile.education[0].degree);
-    await page.waitForTimeout(1000);
-    await page.keyboard.press("Enter");
-
-    // Omit the application submission as to not spam the site
-
-    await this.stagehand.close();
   }
 }

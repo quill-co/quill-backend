@@ -1,148 +1,172 @@
-import { WebSocket, WebSocketServer } from "ws";
+import WebSocket, { WebSocketServer } from "ws";
 import { IncomingMessage } from "http";
 import { parse } from "url";
 import logger from "../logger";
 
-interface Session {
+export interface Session {
   id: string;
-  data: any;
   ws: WebSocket;
   lastPing: number;
+  data: any;
 }
+
+export type Message = {
+  type:
+    | "log"
+    | "error"
+    | "status"
+    | "session_init"
+    | "message_received"
+    | "broadcast"
+    | "ping"
+    | "pong"
+    | "finished";
+  message?: string;
+  status?: string;
+  sessionId?: string;
+  data?: any;
+  timestamp?: number;
+};
 
 export class SocketServer {
   private wss: WebSocketServer;
   private sessions: Map<string, Session>;
   private pingInterval!: NodeJS.Timeout;
+  private pendingClients: Set<string>;
 
   constructor(port: number) {
     this.sessions = new Map();
+    this.pendingClients = new Set();
+    this.wss = new WebSocketServer({ port });
 
-    this.wss = new WebSocketServer({
-      port,
-      verifyClient: this.verifyClient.bind(this),
-    });
-
-    this.setupServerEvents();
-    this.startPingInterval();
-  }
-
-  private verifyClient(
-    info: { origin: string; secure: boolean; req: IncomingMessage },
-    callback: (res: boolean, code?: number, message?: string) => void
-  ) {
-    const { pathname } = parse(info.req.url || "");
-    const sessionId = pathname?.slice(1); // Remove leading slash
-
-    if (!sessionId) {
-      callback(false, 400, "Session ID required");
-      return;
-    }
-
-    callback(true);
-  }
-
-  private setupServerEvents() {
     this.wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
-      const { pathname } = parse(req.url || "");
-      const sessionId = pathname?.slice(1) || "";
+      const { query } = parse(req.url || "", true);
+      const requestedId = query.clientId as string;
+
+      // If a specific client ID was requested and is pending, use it
+      const sessionId =
+        requestedId && this.pendingClients.has(requestedId)
+          ? requestedId
+          : crypto.randomUUID();
+
+      if (requestedId) {
+        this.pendingClients.delete(requestedId);
+      }
 
       const session: Session = {
         id: sessionId,
-        data: {},
         ws,
         lastPing: Date.now(),
+        data: {},
       };
 
       this.sessions.set(sessionId, session);
       logger.info(`Client connected with session ID: ${sessionId}`);
 
-      ws.on("message", (message: string) =>
-        this.handleMessage(session, message)
-      );
-      ws.on("close", () => this.handleClose(sessionId));
-      ws.on("pong", () => this.handlePong(session));
-
-      // Send initial session data
-      this.sendToClient(session, {
-        type: "session_start",
-        sessionId,
+      // Send session ID to client immediately after connection
+      this.sendToClient(sessionId, {
+        type: "session_init",
+        sessionId: sessionId,
         timestamp: Date.now(),
       });
-    });
-  }
 
-  private startPingInterval() {
+      ws.on("close", () => {
+        this.sessions.delete(sessionId);
+        logger.info(`Client disconnected: ${sessionId}`);
+      });
+
+      ws.on("message", (data: string) => {
+        try {
+          const message = JSON.parse(data);
+          if (message.type === "ping") {
+            session.lastPing = Date.now();
+          } else {
+            logger.info(
+              `Received message from session ${session.id}:`,
+              message
+            );
+
+            // Update session data if provided
+            if (message.sessionData) {
+              session.data = { ...session.data, ...message.sessionData };
+            }
+
+            // Echo back the received message with session info
+            this.sendToClient(session.id, {
+              type: "message_received",
+              sessionId: session.id,
+              data: message,
+              timestamp: Date.now(),
+            });
+          }
+        } catch (error) {
+          logger.error(
+            `Error handling message from session ${session.id}:`,
+            error
+          );
+        }
+      });
+    });
+
+    // Start ping interval
     this.pingInterval = setInterval(() => {
       const now = Date.now();
-      this.sessions.forEach((session, sessionId) => {
+      this.sessions.forEach((session, id) => {
         if (now - session.lastPing > 30000) {
           // 30 seconds timeout
-          logger.warn(`Session ${sessionId} timed out`);
-          session.ws.terminate();
-          this.sessions.delete(sessionId);
+          logger.warn(`Session ${id} timed out`);
+          session.ws.close();
+          this.sessions.delete(id);
         } else {
           session.ws.ping();
         }
       });
-    }, 15000); // Check every 15 seconds
+    }, 10000);
   }
 
-  private handleMessage(session: Session, message: string) {
-    try {
-      const data = JSON.parse(message.toString());
-      logger.info(`Received message from session ${session.id}:`, data);
-
-      // Update session data if provided
-      if (data.sessionData) {
-        session.data = { ...session.data, ...data.sessionData };
-      }
-
-      // Echo back the received message with session info
-      this.sendToClient(session, {
-        type: "message_received",
-        sessionId: session.id,
-        data: data,
-        timestamp: Date.now(),
-      });
-    } catch (error) {
-      logger.error(`Error handling message from session ${session.id}:`, error);
-    }
+  public registerPendingClient(clientId: string): void {
+    this.pendingClients.add(clientId);
+    logger.info(`Registered pending client: ${clientId}`);
   }
 
-  private handleClose(sessionId: string) {
-    this.sessions.delete(sessionId);
-    logger.info(`Client disconnected: ${sessionId}`);
-  }
-
-  private handlePong(session: Session) {
-    session.lastPing = Date.now();
-  }
-
-  private sendToClient(session: Session, data: any) {
-    try {
-      session.ws.send(JSON.stringify(data));
-    } catch (error) {
-      logger.error(`Error sending to session ${session.id}:`, error);
-    }
-  }
-
-  broadcast(data: any) {
+  public broadcast(message: Message): void {
     this.sessions.forEach((session) => {
-      this.sendToClient(session, {
-        type: "broadcast",
-        data,
-        timestamp: Date.now(),
-      });
+      if (session.ws.readyState === WebSocket.OPEN) {
+        session.ws.send(JSON.stringify(message));
+      }
     });
+  }
+
+  public sendToClient(sessionId: string, message: Message): void {
+    const session = this.sessions.get(sessionId);
+    if (session && session.ws.readyState === WebSocket.OPEN) {
+      session.ws.send(JSON.stringify(message));
+    } else {
+      logger.warn(
+        `Failed to send message to client ${sessionId}: Client not found or not connected`
+      );
+    }
+  }
+
+  public closeClient(sessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.ws.close();
+      this.sessions.delete(sessionId);
+    }
+  }
+
+  public close(): void {
+    clearInterval(this.pingInterval);
+    this.wss.close();
   }
 
   public getSession(sessionId: string): Session | undefined {
     return this.sessions.get(sessionId);
   }
 
-  public close() {
-    clearInterval(this.pingInterval);
-    this.wss.close();
+  public hasActiveSession(sessionId: string): boolean {
+    const session = this.sessions.get(sessionId);
+    return !!(session && session.ws.readyState === WebSocket.OPEN);
   }
 }

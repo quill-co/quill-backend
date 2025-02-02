@@ -1,18 +1,23 @@
 import { Stagehand } from "@browserbasehq/stagehand";
 import { JobListing } from "../../types/listing";
 import logger from "../logger";
+import { SocketServer } from "../socket/socket";
 
 export abstract class BaseWorker {
   private workerId: string;
   public stagehand: Stagehand;
+  protected socketServer?: SocketServer;
+  protected clientId?: string;
 
-  constructor() {
+  constructor(socketServer?: SocketServer, clientId?: string) {
     this.workerId = crypto.randomUUID();
     this.stagehand = new Stagehand({
       apiKey: process.env.BROWSERBASE_API_KEY,
       projectId: process.env.BROWSERBASE_PROJECT_ID,
       env: process.env.BROWSER_ENV as "LOCAL" | "BROWSERBASE",
     });
+    this.socketServer = socketServer;
+    this.clientId = clientId;
   }
 
   async init() {
@@ -21,10 +26,18 @@ export abstract class BaseWorker {
 
   log(message: string) {
     logger.info(`[${this.workerId}] ${message}`);
+    if (this.socketServer && this.clientId) {
+      this.socketServer.sendToClient(this.clientId, { type: "log", message });
+    }
   }
 
   async finish() {
     logger.info("Worker finished");
+    if (this.socketServer && this.clientId) {
+      this.socketServer.sendToClient(this.clientId, { type: "finished" });
+      this.socketServer.closeClient(this.clientId);
+    }
+    await this.stagehand.close();
   }
 
   abstract apply(listing: JobListing): Promise<void>;

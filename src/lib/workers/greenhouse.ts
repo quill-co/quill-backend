@@ -51,6 +51,34 @@ export default class GreenhouseWorker extends BaseWorker {
     await page.waitForSelector(".chosen", { state: "visible" });
     await page.waitForSelector(".progress-bar", { state: "hidden" });
 
+    // Fill education fields
+    await page.getByLabel("School").click();
+    await page.keyboard.type(profile.education[0].institution);
+    await page.keyboard.press("Enter");
+
+    await page.getByLabel("Degree").click();
+    // Map degree to Greenhouse's options
+    const degreeText = profile.education[0].degree.toLowerCase();
+    let degreeOption = "Bachelor's Degree"; // Default
+    if (
+      degreeText.includes("bachelor") ||
+      degreeText.includes("bs") ||
+      degreeText.includes("b.s.")
+    ) {
+      degreeOption = "Bachelor's Degree";
+    } else if (degreeText.includes("master")) {
+      degreeOption = "Master's Degree";
+    } else if (
+      degreeText.includes("phd") ||
+      degreeText.includes("doctor of philosophy")
+    ) {
+      degreeOption = "Doctor of Philosophy (Ph.D.)";
+    } else {
+      degreeOption = "Bacherlor's Degree";
+    }
+    await page.keyboard.type(degreeOption);
+    await page.keyboard.press("Enter");
+
     await page.getByRole("button", { name: "Submit Application" }).click();
 
     await page.waitForTimeout(100000);

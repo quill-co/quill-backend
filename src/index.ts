@@ -16,17 +16,7 @@ dotenv.config();
     const clientId = crypto.randomUUID();
     socketServer.registerPendingClient(clientId);
 
-    // Make client ID very visible for testing
-    console.log("\n=================================");
-    console.log("🔑 Client ID for testing:");
-    console.log(clientId);
-    console.log("=================================");
-    console.log("\nTo test with wscat, run:");
-    console.log(
-      `wscat -c "ws://localhost:${
-        process.env.SOCKET_PORT || "80"
-      }?clientId=${clientId}"\n`
-    );
+    console.log("Client ID for testing: ", clientId);
 
     // Wait for client connection and ensure it stays connected
     const waitForClient = async (

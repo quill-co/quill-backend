@@ -1,12 +1,20 @@
 import { z } from "zod";
 
 export const JobListingSchema = z.object({
-  title: z.string().describe("The title of the job listing"),
+  title: z
+    .string()
+    .describe(
+      "The job title, like 'Software Engineering Intern' or 'Senior Data Analyst' etc."
+    ),
   company: z.string().describe("The company that is posting the job"),
-  location: z.string().describe("The location of the job"),
+  location: z
+    .string()
+    .describe("The location of the job, like 'San Francisco, CA'"),
   description: z
     .string()
-    .describe("The description of the job. Create one if it's not provided."),
+    .describe(
+      "The description of the job. Create a short one if it's not provided."
+    ),
   url: z
     .string()
     .describe("The url of the job listing")

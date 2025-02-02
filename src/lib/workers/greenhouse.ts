@@ -11,13 +11,10 @@ export default class GreenhouseWorker extends BaseWorker {
 
   async apply(listing: JobListing): Promise<void> {
     this.log(`Applying to ${listing.title} at ${listing.company}`);
-
+    this.listing = listing;
     const { page } = this.stagehand;
 
-    this.socketServer.sendToClient(this.clientId, {
-      type: "status",
-      status: "initializing",
-    });
+    await this.updateStatus("Getting ready...");
 
     await page.goto(listing.url);
 
@@ -28,10 +25,7 @@ export default class GreenhouseWorker extends BaseWorker {
       return;
     }
 
-    this.socketServer.sendToClient(this.clientId, {
-      type: "status",
-      status: "filling_out_form",
-    });
+    await this.updateStatus("Filling out your personal information...");
 
     await page.getByLabel("First Name *").fill(profile.name.split(" ")[0]);
     await page.getByLabel("Last Name *").fill(profile.name.split(" ")[1]);
@@ -47,10 +41,7 @@ export default class GreenhouseWorker extends BaseWorker {
       await page.getByLabel("Website").fill(profile.contactInfo.website);
     }
 
-    this.socketServer.sendToClient(this.clientId, {
-      type: "status",
-      status: "uploading_resume",
-    });
+    await this.updateStatus("Uploading your resume...");
 
     const resumePath = path.join(process.cwd(), "bin/resume.pdf");
     const fileInput = await page.$('input[type="file"]');
@@ -63,10 +54,7 @@ export default class GreenhouseWorker extends BaseWorker {
     await page.waitForSelector(".chosen", { state: "visible" });
     await page.waitForSelector(".progress-bar", { state: "hidden" });
 
-    this.socketServer.sendToClient(this.clientId, {
-      type: "status",
-      status: "filling_in_education",
-    });
+    await this.updateStatus("Adding your education details...");
 
     // Fill in education institution
     await page.click("#select2-chosen-1");
@@ -97,12 +85,8 @@ export default class GreenhouseWorker extends BaseWorker {
     await page.waitForTimeout(1000);
     await page.keyboard.press("Enter");
 
-    this.socketServer.sendToClient(this.clientId, {
-      type: "finished",
-    });
+    await this.finish();
 
     // Omit the application submission as to not spam the site
-
-    await this.stagehand.close();
   }
 }

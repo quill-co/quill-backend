@@ -20,7 +20,8 @@ export type Message = {
     | "broadcast"
     | "ping"
     | "pong"
-    | "finished";
+    | "finished"
+    | "job_listing";
   message?: string;
   status?: string;
   sessionId?: string;
@@ -43,15 +44,15 @@ export class SocketServer {
       const { query } = parse(req.url || "", true);
       const requestedId = query.clientId as string;
 
-      // If a specific client ID was requested and is pending, use it
-      const sessionId =
-        requestedId && this.pendingClients.has(requestedId)
-          ? requestedId
-          : crypto.randomUUID();
-
-      if (requestedId) {
-        this.pendingClients.delete(requestedId);
+      if (!requestedId) {
+        logger.error("No client ID provided");
+        ws.close();
+        return;
       }
+
+      this.pendingClients.delete(requestedId);
+
+      const sessionId = requestedId;
 
       const session: Session = {
         id: sessionId,
@@ -139,12 +140,13 @@ export class SocketServer {
 
   public sendToClient(sessionId: string, message: Message): void {
     const session = this.sessions.get(sessionId);
-    if (session && session.ws.readyState === WebSocket.OPEN) {
+    if (session) {
+      logger.info(`[${sessionId}]`, message);
       session.ws.send(JSON.stringify(message));
-    } else {
-      logger.warn(
-        `Failed to send message to client ${sessionId}: Client not found or not connected`
-      );
+      // } else {
+      //   logger.warn(
+      //     `Failed to send message to client ${sessionId}: Client not found or not connected`
+      //   );
     }
   }
 

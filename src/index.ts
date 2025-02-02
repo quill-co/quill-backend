@@ -37,8 +37,6 @@ const upload = multer({
   },
 });
 
-app.use(express.json());
-
 type RequestWithFile = Request & { file?: Express.Multer.File };
 
 app.post(
@@ -66,27 +64,66 @@ app.post(
   }
 );
 
-app.post("/api/apply", async (req: Request, res: Response) => {
-  try {
-    const { clientId } = req.body;
-    if (!clientId) {
-      return res.status(400).json({ error: "clientId is required" });
+app.post(
+  "/api/apply",
+  express.json({
+    type: "*/*",
+  }),
+  async (req: Request, res: Response) => {
+    try {
+      const { clientId } = req.body;
+      if (!clientId) {
+        return res.status(400).json({ error: "clientId is required" });
+      }
+
+      socketServer.sendToClient(clientId, {
+        type: "session_init",
+      });
+
+      socketServer.sendToClient(clientId, {
+        type: "log",
+        message: "Starting job search...",
+      });
+
+      const scraper = new GoogleScraper();
+      await scraper.init();
+      socketServer.sendToClient(clientId, {
+        type: "log",
+        message: "Getting job listings...",
+      });
+      const listings = await scraper.getJobListings();
+
+      socketServer.sendToClient(clientId, {
+        type: "log",
+        message: "Found job listings!",
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 4000));
+
+      for (const listing of listings) {
+        socketServer.sendToClient(clientId, {
+          type: "job_listing",
+          data: {
+            company: listing.company,
+            jobTitle: listing.title,
+            url: listing.url,
+            location: listing.location,
+            status: "Initializing...",
+          },
+        });
+      }
+
+      const worker = new GreenhouseWorker(socketServer, clientId);
+      await worker.init();
+      await worker.apply(listings[0]);
+
+      res.json({ success: true });
+    } catch (error) {
+      logger.error(error);
+      res.status(500).json({ error: "Failed to apply to job" });
     }
-
-    const scraper = new GoogleScraper();
-    await scraper.init();
-    const listings = await scraper.getJobListings();
-
-    const worker = new GreenhouseWorker(socketServer, clientId);
-    await worker.init();
-    await worker.apply(listings[0]);
-
-    res.json({ success: true });
-  } catch (error) {
-    logger.error(error);
-    res.status(500).json({ error: "Failed to apply to job" });
   }
-});
+);
 
 // Start HTTP server
 httpServer.listen(httpPort, () => {

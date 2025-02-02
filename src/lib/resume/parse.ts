@@ -1,17 +1,14 @@
 import { Profile, ProfileSchema } from "../../types/profile";
-
-import { z } from "zod";
-import { exec } from "child_process";
-import { promisify } from "util";
-import { writeFile, unlink, mkdir } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
-import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
-import { google } from "@ai-sdk/google";
 import { anthropic } from "@ai-sdk/anthropic";
 import { deepseek } from "@ai-sdk/deepseek";
-import { ExecException } from "child_process";
+import { google } from "@ai-sdk/google";
+import { openai } from "@ai-sdk/openai";
+import { generateText } from "ai";
+import { exec } from "child_process";
+import { existsSync } from "fs";
+import { mkdir, unlink, writeFile } from "fs/promises";
+import { join } from "path";
+import { promisify } from "util";
 
 const execAsync = promisify(exec);
 const PROFILES_DIR = join(process.cwd(), "bin", "data", "profiles");
@@ -99,7 +96,7 @@ Required format:
       "description": "Project description"
     }
   ],
-  "resumeUrl": "https://example.com/resume",
+  "resumeUrl": "Full URL including https:// (use https://example.com/resume if not found)",
   "summary": "Professional summary or first paragraph of experience",
   "skills": ["Skill 1", "Skill 2", "..."],
   "education": [
@@ -121,7 +118,8 @@ Rules:
 4. Use "Prefer not to say" for demographic info if not explicitly stated
 5. Format text fields properly with correct capitalization
 6. Remove any markdown or special formatting
-7. Keep full descriptions for experience and projects`;
+7. Keep full descriptions for experience and projects
+8. For resumeUrl, ALWAYS include https:// prefix (e.g., convert "sameel.dev" to "https://sameel.dev")`;
 
     try {
       const { text: response } = await generateText({
@@ -192,15 +190,33 @@ Rules:
       const escapedPath = pdfPath.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 
       const pythonScript = `
-import sys
-from pdfminer.high_level import extract_text
+from io import StringIO
+from pdfminer.layout import LAParams
+from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
+from pdfminer.converter import TextConverter
+from pdfminer.pdfpage import PDFPage
+
+def convert_pdf_to_text(path):
+    rsrcmgr = PDFResourceManager()
+    retstr = StringIO()
+    laparams = LAParams()
+    device = TextConverter(rsrcmgr, retstr, laparams=laparams)
+    with open(path, 'rb') as fp:
+        interpreter = PDFPageInterpreter(rsrcmgr, device)
+        for page in PDFPage.get_pages(fp):
+            interpreter.process_page(page)
+    text = retstr.getvalue()
+    device.close()
+    retstr.close()
+    return text
+
 try:
-    text = extract_text('${escapedPath}')
+    text = convert_pdf_to_text('${escapedPath}')
     if not text.strip():
-        print("Error: No text content found in PDF", file=sys.stderr)
-        sys.exit(1)
+        raise Exception("No text content found in PDF")
     print(text)
 except Exception as e:
+    import sys
     print(f"Error: {str(e)}", file=sys.stderr)
     sys.exit(1)
       `.trim();

@@ -47,28 +47,29 @@ export class ProfileManager {
    */
   static async loadLatestProfile(): Promise<Profile | null> {
     try {
+      // Get all profile files
       const profiles = await this.listProfiles();
       if (profiles.length === 0) {
         return null;
       }
 
-      // Get the most recently modified profile
+      // Get stats for each profile file
       const profileStats = await Promise.all(
         profiles.map(async (filename) => {
           const filePath = join(PROFILES_DIR, filename);
           const stats = await stat(filePath);
-          return { filename, stats };
+          return {
+            filename,
+            mtime: stats.mtime.getTime(),
+          };
         })
       );
 
-      const mostRecent = profileStats.reduce((latest, current) => {
-        if (!latest || current.stats.mtime > latest.stats.mtime) {
-          return current;
-        }
-        return latest;
-      });
+      // Sort by modified time descending and get the most recent
+      profileStats.sort((a, b) => b.mtime - a.mtime);
+      const latestProfile = profileStats[0];
 
-      return this.loadProfileFromFile(mostRecent.filename);
+      return await this.loadProfileFromFile(latestProfile.filename);
     } catch (error) {
       console.error("Error loading latest profile:", error);
       return null;

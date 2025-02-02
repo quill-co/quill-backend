@@ -1,3 +1,4 @@
+import path from "path";
 import { JobListing } from "../../types/listing";
 import { ProfileManager } from "../../util/profiles";
 import { BaseWorker } from "./base";
@@ -14,28 +15,43 @@ export default class GreenhouseWorker extends BaseWorker {
 
     await page.goto(listing.url);
 
-    const profile = ProfileManager.loadLatestProfile();
+    const profile = await ProfileManager.loadLatestProfile();
 
     if (!profile) {
       this.log("No profile found");
       return;
     }
 
-    await page.act("Click on the apply button");
+    await page.getByLabel("First Name *").fill(profile.name.split(" ")[0]);
+    await page.getByLabel("Last Name *").fill(profile.name.split(" ")[1]);
+    await page.getByLabel("Email *").fill(profile.contactInfo.email);
+    await page.getByLabel("Phone *").fill(profile.contactInfo.phone);
 
-    const formCandidates = await page.observe({
-      instruction: `Fill in the form with the values provided in the JSON object:\n${JSON.stringify(
-        profile,
-        null,
-        2
-      )}`,
-      returnAction: true,
-      onlyVisible: true,
-    });
-
-    for (const candidate of formCandidates) {
-      await page.act(candidate);
+    await page
+      .getByLabel("Location (City)")
+      .fill(profile.contactInfo.address.city);
+    if (profile.contactInfo.linkedin) {
+      await page
+        .getByLabel("LinkedIn Profile")
+        .fill(profile.contactInfo.linkedin);
     }
+    if (profile.contactInfo.website) {
+      await page.getByLabel("Website").fill(profile.contactInfo.website);
+    }
+
+    // Upload resume
+    const resumePath = path.join(process.cwd(), "bin/resume.pdf");
+    const fileInput = await page.$('input[type="file"]');
+    if (!fileInput) {
+      throw new Error("Could not find file input");
+    }
+    await fileInput.setInputFiles(resumePath);
+
+    // Wait for upload to complete
+    await page.waitForSelector(".chosen", { state: "visible" });
+    await page.waitForSelector(".progress-bar", { state: "hidden" });
+
+    await page.getByRole("button", { name: "Submit Application" }).click();
 
     await page.waitForTimeout(100000);
 

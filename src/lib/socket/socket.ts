@@ -1,7 +1,7 @@
 import WebSocket, { WebSocketServer } from "ws";
 import { IncomingMessage } from "http";
 import { parse } from "url";
-import logger from "../logger";
+import logger from "@/lib/logger";
 
 export interface Session {
   id: string;

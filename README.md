@@ -6,6 +6,7 @@ A powerful automated job application system with real-time progress tracking and
 
 - Dominic [@reb0und](https://rebound.sh/) - Backend Developer, Freshman at Stevens
 - Sameel [@sameelarif](https://www.sameel.dev) - Software Developer, Junior at Rutgers
+- Christian [@christianobora](https://christianobora.dev) - FullStack Developer, Sophomore at UChicago
 
 ## Features
 

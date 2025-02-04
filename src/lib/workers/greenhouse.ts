@@ -1,7 +1,7 @@
 import path from "path";
-import { JobListing } from "../../types/listing";
-import { ProfileManager } from "../../util/profiles";
-import { SocketServer } from "../socket/socket";
+import { JobListing } from "@/types/listing";
+import { ProfileManager } from "@/util/profiles";
+import { SocketServer } from "@/lib/socket/socket";
 import { BaseWorker } from "./base";
 
 export default class GreenhouseWorker extends BaseWorker {

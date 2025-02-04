@@ -1,7 +1,7 @@
 import { Stagehand } from "@browserbasehq/stagehand";
-import { JobListing } from "../../types/listing";
-import logger from "../logger";
-import { SocketServer } from "../socket/socket";
+import { JobListing } from "@/types/listing";
+import logger from "@/lib/logger";
+import { SocketServer } from "@/lib/socket/socket";
 
 export abstract class BaseWorker {
   private workerId: string;

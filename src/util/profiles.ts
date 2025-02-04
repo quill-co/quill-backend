@@ -1,4 +1,4 @@
-import { Profile, ProfileSchema } from "../types/profile";
+import { Profile, ProfileSchema } from "@/types/profile";
 import { readFile, writeFile, mkdir, readdir, unlink, stat } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";

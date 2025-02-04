@@ -47,6 +47,12 @@ export const ProfileSchema = z.object({
   protectedVeteran: z.boolean(),
   race: z.string(),
   needsSponsorship: z.boolean(),
+
+  imapConfig: z.object({
+    email: z.string().email(),
+    password: z.string(),
+    provider: z.enum(["gmail", "outlook", "yahoo"]),
+  }),
 });
 
 export type Profile = z.infer<typeof ProfileSchema>;

@@ -5,11 +5,11 @@ import express, { Request, Response } from "express";
 import { createServer } from "http";
 import multer, { FileFilterCallback } from "multer";
 import { join } from "path";
-import logger from "./lib/logger";
-import { Parser } from "./lib/resume/parse";
-import { GoogleScraper } from "./lib/scraper/google";
-import { SocketServer } from "./lib/socket/socket";
-import GreenhouseWorker from "./lib/workers/greenhouse";
+import logger from "@/lib/logger";
+import { Parser } from "@/lib/resume/parse";
+import { GoogleScraper } from "@/lib/scraper/google";
+import { SocketServer } from "@/lib/socket/socket";
+import GreenhouseWorker from "@/lib/workers/greenhouse";
 
 config();
 

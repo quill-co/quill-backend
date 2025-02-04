@@ -1,10 +1,10 @@
 import { Stagehand } from "@browserbasehq/stagehand";
 import { z } from "zod";
-import { PageNotInitializedError } from "../../types/error";
-import { JobListing, JobListingSchema } from "../../types/listing";
-import { Scraper } from "../../types/scraper";
-import { createBrowser } from "../browser";
-import { buildExtractionPrompt } from "../prompts";
+import { PageNotInitializedError } from "@/types/error";
+import { JobListing, JobListingSchema } from "@/types/listing";
+import { Scraper } from "@/types/scraper";
+import { createBrowser } from "@/lib/browser";
+import { buildExtractionPrompt } from "@/lib/prompts";
 
 export class GoogleScraper implements Scraper {
   stagehand?: Stagehand;

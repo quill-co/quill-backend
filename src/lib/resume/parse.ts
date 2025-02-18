@@ -8,7 +8,7 @@ import { existsSync } from "fs";
 import { mkdir, unlink, writeFile } from "fs/promises";
 import { join } from "path";
 import { promisify } from "util";
-import { Profile, ProfileSchema } from "../../types/profile";
+import { Profile, ProfileSchema } from "@/types/profile";
 
 const execAsync = promisify(exec);
 const PROFILES_DIR = join(process.cwd(), "bin", "data", "profiles");
